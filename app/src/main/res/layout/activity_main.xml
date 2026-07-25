@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/void_bg"
+    android:paddingTop="24dp">
+
+    <TextView
+        android:id="@+id/logo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="KUBASTREAM"
+        android:typeface="monospace"
+        android:textStyle="bold"
+        android:textSize="28sp"
+        android:letterSpacing="0.05"
+        android:paddingBottom="4dp" />
+
+    <TextView
+        android:id="@+id/insertCoin"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="INSERT COIN"
+        android:textColor="@color/yellow"
+        android:typeface="monospace"
+        android:textStyle="bold"
+        android:textSize="12sp"
+        android:padding="10dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true" />
+
+    <LinearLayout
+        android:id="@+id/donatePanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:layout_margin="16dp"
+        android:padding="16dp"
+        android:background="@drawable/card_yellow">
+
+        <TextView style="@style/DonateLabel" android:text="PayID (AU)" />
+        <TextView style="@style/DonateValue" android:text="shunt8787@revolut.me" />
+
+        <TextView style="@style/DonateLabel" android:layout_marginTop="10dp" android:text="BSB" />
+        <TextView style="@style/DonateValue" android:text="772772" />
+
+        <TextView style="@style/DonateLabel" android:layout_marginTop="10dp" android:text="Account number" />
+        <TextView style="@style/DonateValue" android:text="103859864" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:textColor="@color/muted"
+            android:textSize="12sp"
+            android:text="Stephen Hunt · AUD · Revolut Payments Australia" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/settingsPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:layout_margin="16dp"
+        android:padding="16dp"
+        android:background="@drawable/card_neon">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Server URL"
+            android:textColor="@color/cyan"
+            android:textSize="13sp"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/serverUrlInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="https://kubastream.yoursubdomain.workers.dev"
+            android:textColor="@color/chrome"
+            android:textColorHint="@color/muted"
+            android:background="@color/void_bg"
+            android:padding="10dp"
+            android:inputType="textUri" />
+
+        <Button
+            android:id="@+id/saveServerUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Save"
+            android:textColor="@color/void_bg"
+            android:backgroundTint="@color/cyan" />
+
+    </LinearLayout>
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefresh"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/apkList"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp"
+            android:clipToPadding="false" />
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+</LinearLayout>
