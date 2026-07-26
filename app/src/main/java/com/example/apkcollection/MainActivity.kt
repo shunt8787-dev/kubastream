@@ -88,7 +88,8 @@ class MainActivity : AppCompatActivity() {
                 emptyList(),
                 onClick = { onApkTapped(it) },
                 onRename = { onRenameTapped(it) },
-                onDelete = { onDeleteTapped(it) }
+                onDelete = { onDeleteTapped(it) },
+                onLink = { onLinkTapped(it) }
             )
             recycler.layoutManager = LinearLayoutManager(this)
             recycler.adapter = adapter
@@ -342,6 +343,20 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread { Toast.makeText(this, "Upload failed: ${e.message}", Toast.LENGTH_LONG).show() }
             }
         }
+    }
+
+    private fun onLinkTapped(apk: RemoteApk) {
+        val url = "$baseUrl/download/${Uri.encode(apk.key)}"
+        try {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("KUBASTREAM link", url))
+        } catch (t: Throwable) {
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Link copied")
+            .setMessage(url)
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     private fun onDeleteTapped(apk: RemoteApk) {

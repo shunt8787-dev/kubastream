@@ -25,6 +25,20 @@
         android:textSize="13sp"
         android:layout_marginTop="3dp" />
 
+    <TextView
+        android:id="@+id/linkBtn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Copy link"
+        android:textColor="@color/cyan"
+        android:textStyle="bold"
+        android:textSize="13sp"
+        android:layout_marginTop="6dp"
+        android:padding="10dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?attr/selectableItemBackground" />
+
     <LinearLayout
         android:id="@+id/adminRow"
         android:layout_width="wrap_content"
