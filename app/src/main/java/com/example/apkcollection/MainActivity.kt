@@ -9,11 +9,13 @@ import android.graphics.Shader
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.provider.Settings
 import android.view.View
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -37,12 +39,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var settingsPanel: View
     private lateinit var serverUrlInput: EditText
     private lateinit var adminKeyInput: EditText
+    private lateinit var uploadButton: View
     private lateinit var donatePanel: View
     private lateinit var adapter: ApkAdapter
 
     private var tapCount = 0
     private var lastTapTime = 0L
     private var pendingInstallFile: File? = null
+
+    private val pickFileLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) uploadFile(uri)
+    }
 
     private val baseUrl: String
         get() = prefs.getString("server_base_url", "")?.trimEnd('/') ?: ""
@@ -60,6 +67,7 @@ class MainActivity : AppCompatActivity() {
             settingsPanel = findViewById(R.id.settingsPanel)
             serverUrlInput = findViewById(R.id.serverUrlInput)
             adminKeyInput = findViewById(R.id.adminKeyInput)
+            uploadButton = findViewById(R.id.uploadApkButton)
             donatePanel = findViewById(R.id.donatePanel)
             swipeRefresh = findViewById(R.id.swipeRefresh)
             recycler = findViewById(R.id.apkList)
@@ -76,7 +84,9 @@ class MainActivity : AppCompatActivity() {
             )
             recycler.layoutManager = LinearLayoutManager(this)
             recycler.adapter = adapter
-            adapter.setUnlocked(adminKey.isNotBlank())
+            setUnlockedState(adminKey.isNotBlank())
+
+            uploadButton.setOnClickListener { pickFileLauncher.launch("*/*") }
 
             logo.setOnClickListener {
                 val now = System.currentTimeMillis()
@@ -98,7 +108,7 @@ class MainActivity : AppCompatActivity() {
                     .apply()
 
                 if (key.isBlank()) {
-                    adapter.setUnlocked(false)
+                    setUnlockedState(false)
                     Toast.makeText(this, "Server saved", Toast.LENGTH_SHORT).show()
                     loadFiles()
                 } else {
@@ -128,6 +138,11 @@ class MainActivity : AppCompatActivity() {
         tv.textSize = 12f
         scrollView.addView(tv)
         setContentView(scrollView)
+    }
+
+    private fun setUnlockedState(value: Boolean) {
+        adapter.setUnlocked(value)
+        uploadButton.visibility = if (value) View.VISIBLE else View.GONE
     }
 
     override fun onResume() {
@@ -206,17 +221,17 @@ class MainActivity : AppCompatActivity() {
                 val code = conn.responseCode
                 runOnUiThread {
                     if (code in 200..299) {
-                        adapter.setUnlocked(true)
-                        Toast.makeText(this, "Unlocked, delete/rename enabled", Toast.LENGTH_SHORT).show()
+                        setUnlockedState(true)
+                        Toast.makeText(this, "Unlocked, delete/rename/upload enabled", Toast.LENGTH_SHORT).show()
                     } else {
-                        adapter.setUnlocked(false)
+                        setUnlockedState(false)
                         Toast.makeText(this, "Wrong key, browsing only", Toast.LENGTH_LONG).show()
                     }
                     loadFiles()
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    adapter.setUnlocked(false)
+                    setUnlockedState(false)
                     Toast.makeText(this, "Couldn't verify key: ${e.message}", Toast.LENGTH_LONG).show()
                     loadFiles()
                 }
@@ -243,6 +258,65 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun getFileName(uri: Uri): String {
+        var name = "upload.apk"
+        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (idx >= 0 && cursor.moveToFirst()) {
+                cursor.getString(idx)?.let { name = it }
+            }
+        }
+        return name
+    }
+
+    private fun uploadFile(uri: Uri) {
+        val fileName = getFileName(uri)
+        if (!fileName.lowercase().endsWith(".apk")) {
+            Toast.makeText(this, "Only .apk files can be uploaded", Toast.LENGTH_LONG).show()
+            return
+        }
+        Toast.makeText(this, "Uploading $fileName", Toast.LENGTH_SHORT).show()
+        thread {
+            try {
+                val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: throw Exception("Couldn't read file")
+
+                val boundary = "----KubaBoundary${System.currentTimeMillis()}"
+                val conn = URL("$baseUrl/api/upload").openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.doOutput = true
+                conn.setRequestProperty("X-Kuba-Key", adminKey)
+                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                conn.connectTimeout = 15000
+                conn.readTimeout = 60000
+
+                conn.outputStream.use { out ->
+                    val head = "--$boundary\r\n" +
+                        "Content-Disposition: form-data; name=\"file\"; filename=\"$fileName\"\r\n" +
+                        "Content-Type: application/vnd.android.package-archive\r\n\r\n"
+                    out.write(head.toByteArray())
+                    out.write(bytes)
+                    out.write("\r\n--$boundary--\r\n".toByteArray())
+                }
+
+                val code = conn.responseCode
+                runOnUiThread {
+                    if (code in 200..299) {
+                        Toast.makeText(this, "Uploaded $fileName", Toast.LENGTH_SHORT).show()
+                        loadFiles()
+                    } else if (code == 401) {
+                        setUnlockedState(false)
+                        Toast.makeText(this, "Key no longer valid, unlock again", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(this, "Upload failed ($code)", Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread { Toast.makeText(this, "Upload failed: ${e.message}", Toast.LENGTH_LONG).show() }
+            }
+        }
+    }
+
     private fun onDeleteTapped(apk: RemoteApk) {
         AlertDialog.Builder(this)
             .setTitle("Delete file")
@@ -265,7 +339,7 @@ class MainActivity : AppCompatActivity() {
                         Toast.makeText(this, "Deleted", Toast.LENGTH_SHORT).show()
                         loadFiles()
                     } else if (code == 401) {
-                        adapter.setUnlocked(false)
+                        setUnlockedState(false)
                         Toast.makeText(this, "Key no longer valid, unlock again", Toast.LENGTH_LONG).show()
                     } else {
                         Toast.makeText(this, "Delete failed ($code)", Toast.LENGTH_LONG).show()
@@ -311,7 +385,7 @@ class MainActivity : AppCompatActivity() {
                         Toast.makeText(this, "Renamed", Toast.LENGTH_SHORT).show()
                         loadFiles()
                     } else if (code == 401) {
-                        adapter.setUnlocked(false)
+                        setUnlockedState(false)
                         Toast.makeText(this, "Key no longer valid, unlock again", Toast.LENGTH_LONG).show()
                     } else {
                         Toast.makeText(this, "Rename failed ($code)", Toast.LENGTH_LONG).show()

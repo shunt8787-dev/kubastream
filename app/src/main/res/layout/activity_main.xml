@@ -145,6 +145,16 @@
             android:textColor="@color/void_bg"
             android:backgroundTint="@color/cyan" />
 
+        <Button
+            android:id="@+id/uploadApkButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Upload APK"
+            android:textColor="@color/void_bg"
+            android:backgroundTint="@color/pink"
+            android:visibility="gone" />
+
     </LinearLayout>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
