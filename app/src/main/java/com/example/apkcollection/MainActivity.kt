@@ -35,6 +35,12 @@ data class RemoteApk(val key: String, val size: Long, val uploaded: String)
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        // Baked-in default so a fresh install always works without setup.
+        // The settings panel can still override this if you ever need to.
+        private const val DEFAULT_SERVER_URL = "https://kubastream.shunt8787.workers.dev"
+    }
+
     private lateinit var prefs: SharedPreferences
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var recycler: RecyclerView
@@ -54,7 +60,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val baseUrl: String
-        get() = prefs.getString("server_base_url", "")?.trimEnd('/') ?: ""
+        get() {
+            val saved = prefs.getString("server_base_url", "")?.trim() ?: ""
+            return (if (saved.isNotBlank()) saved else DEFAULT_SERVER_URL).trimEnd('/')
+        }
 
     private val adminKey: String
         get() = prefs.getString("admin_key", "") ?: ""
@@ -81,7 +90,7 @@ class MainActivity : AppCompatActivity() {
                 findViewById<TextView>(R.id.listHeader)?.setShadowLayer(10f, 0f, 0f, getColor(R.color.pink))
             } catch (t: Throwable) {
             }
-            serverUrlInput.setText(prefs.getString("server_base_url", ""))
+            serverUrlInput.setText(baseUrl)
             adminKeyInput.setText(adminKey)
 
             adapter = ApkAdapter(
