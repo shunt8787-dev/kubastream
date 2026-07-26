@@ -77,6 +77,10 @@ class MainActivity : AppCompatActivity() {
 
             applyLogoGradient(logo)
             setupInsertCoinGlow(insertCoin)
+            try {
+                findViewById<TextView>(R.id.listHeader)?.setShadowLayer(10f, 0f, 0f, getColor(R.color.pink))
+            } catch (t: Throwable) {
+            }
             serverUrlInput.setText(prefs.getString("server_base_url", ""))
             adminKeyInput.setText(adminKey)
 
