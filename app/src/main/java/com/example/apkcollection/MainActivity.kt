@@ -9,6 +9,8 @@ import android.graphics.Shader
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.OpenableColumns
 import android.provider.Settings
 import android.view.View
@@ -64,6 +66,7 @@ class MainActivity : AppCompatActivity() {
             prefs = getSharedPreferences("kubastream", Context.MODE_PRIVATE)
 
             val logo = findViewById<TextView>(R.id.logo)
+            val insertCoin = findViewById<TextView>(R.id.insertCoin)
             settingsPanel = findViewById(R.id.settingsPanel)
             serverUrlInput = findViewById(R.id.serverUrlInput)
             adminKeyInput = findViewById(R.id.adminKeyInput)
@@ -73,6 +76,7 @@ class MainActivity : AppCompatActivity() {
             recycler = findViewById(R.id.apkList)
 
             applyLogoGradient(logo)
+            setupInsertCoinGlow(insertCoin)
             serverUrlInput.setText(prefs.getString("server_base_url", ""))
             adminKeyInput.setText(adminKey)
 
@@ -116,7 +120,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            findViewById<View>(R.id.insertCoin).setOnClickListener {
+            insertCoin.setOnClickListener {
                 donatePanel.visibility = if (donatePanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
             }
 
@@ -169,10 +173,29 @@ class MainActivity : AppCompatActivity() {
                     Shader.TileMode.CLAMP
                 )
                 logo.paint.shader = shader
+                logo.setShadowLayer(18f, 0f, 0f, getColor(R.color.pink))
                 logo.invalidate()
             } catch (t: Throwable) {
             }
         }
+    }
+
+    private fun setupInsertCoinGlow(view: TextView) {
+        try {
+            view.setShadowLayer(14f, 0f, 0f, getColor(R.color.yellow))
+        } catch (t: Throwable) {
+        }
+        val handler = Handler(Looper.getMainLooper())
+        var visible = true
+        val blink = object : Runnable {
+            override fun run() {
+                if (isFinishing || isDestroyed) return
+                visible = !visible
+                view.alpha = if (visible) 1f else 0.15f
+                handler.postDelayed(this, 550)
+            }
+        }
+        handler.postDelayed(blink, 550)
     }
 
     private fun loadFiles() {
