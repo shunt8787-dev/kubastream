@@ -43,14 +43,40 @@
         android:padding="16dp"
         android:background="@drawable/card_yellow">
 
-        <TextView style="@style/DonateLabel" android:text="PayID (AU)" />
-        <TextView style="@style/DonateValue" android:text="shunt8787@revolut.me" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/DonateLabel"
+            android:text="PayID (AU)" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/DonateValue"
+            android:text="shunt8787@revolut.me" />
 
-        <TextView style="@style/DonateLabel" android:layout_marginTop="10dp" android:text="BSB" />
-        <TextView style="@style/DonateValue" android:text="772772" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/DonateLabel"
+            android:layout_marginTop="10dp"
+            android:text="BSB" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/DonateValue"
+            android:text="772772" />
 
-        <TextView style="@style/DonateLabel" android:layout_marginTop="10dp" android:text="Account number" />
-        <TextView style="@style/DonateValue" android:text="103859864" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/DonateLabel"
+            android:layout_marginTop="10dp"
+            android:text="Account number" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/DonateValue"
+            android:text="103859864" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -58,7 +84,7 @@
             android:layout_marginTop="12dp"
             android:textColor="@color/muted"
             android:textSize="12sp"
-            android:text="Stephen Hunt · AUD · Revolut Payments Australia" />
+            android:text="AUD · Revolut Payments Australia" />
     </LinearLayout>
 
     <LinearLayout
