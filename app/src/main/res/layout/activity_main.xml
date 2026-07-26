@@ -116,6 +116,26 @@
             android:padding="10dp"
             android:inputType="textUri" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Admin key (for delete/rename, optional)"
+            android:textColor="@color/cyan"
+            android:textSize="13sp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="6dp" />
+
+        <EditText
+            android:id="@+id/adminKeyInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="leave blank to browse only"
+            android:inputType="textPassword"
+            android:textColor="@color/chrome"
+            android:textColorHint="@color/muted"
+            android:background="@color/void_bg"
+            android:padding="10dp" />
+
         <Button
             android:id="@+id/saveServerUrl"
             android:layout_width="match_parent"

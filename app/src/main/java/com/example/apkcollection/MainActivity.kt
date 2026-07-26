@@ -1,5 +1,6 @@
 package com.example.apkcollection
 
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -19,6 +20,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -34,7 +36,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var recycler: RecyclerView
     private lateinit var settingsPanel: View
     private lateinit var serverUrlInput: EditText
+    private lateinit var adminKeyInput: EditText
     private lateinit var donatePanel: View
+    private lateinit var adapter: ApkAdapter
 
     private var tapCount = 0
     private var lastTapTime = 0L
@@ -42,6 +46,9 @@ class MainActivity : AppCompatActivity() {
 
     private val baseUrl: String
         get() = prefs.getString("server_base_url", "")?.trimEnd('/') ?: ""
+
+    private val adminKey: String
+        get() = prefs.getString("admin_key", "") ?: ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,15 +59,24 @@ class MainActivity : AppCompatActivity() {
             val logo = findViewById<TextView>(R.id.logo)
             settingsPanel = findViewById(R.id.settingsPanel)
             serverUrlInput = findViewById(R.id.serverUrlInput)
+            adminKeyInput = findViewById(R.id.adminKeyInput)
             donatePanel = findViewById(R.id.donatePanel)
             swipeRefresh = findViewById(R.id.swipeRefresh)
             recycler = findViewById(R.id.apkList)
 
             applyLogoGradient(logo)
             serverUrlInput.setText(prefs.getString("server_base_url", ""))
+            adminKeyInput.setText(adminKey)
 
+            adapter = ApkAdapter(
+                emptyList(),
+                onClick = { onApkTapped(it) },
+                onRename = { onRenameTapped(it) },
+                onDelete = { onDeleteTapped(it) }
+            )
             recycler.layoutManager = LinearLayoutManager(this)
-            recycler.adapter = ApkAdapter(emptyList()) { onApkTapped(it) }
+            recycler.adapter = adapter
+            adapter.setUnlocked(adminKey.isNotBlank())
 
             logo.setOnClickListener {
                 val now = System.currentTimeMillis()
@@ -74,9 +90,20 @@ class MainActivity : AppCompatActivity() {
             }
 
             findViewById<View>(R.id.saveServerUrl).setOnClickListener {
-                prefs.edit().putString("server_base_url", serverUrlInput.text.toString().trim()).apply()
-                Toast.makeText(this, "Server saved", Toast.LENGTH_SHORT).show()
-                loadFiles()
+                val url = serverUrlInput.text.toString().trim()
+                val key = adminKeyInput.text.toString().trim()
+                prefs.edit()
+                    .putString("server_base_url", url)
+                    .putString("admin_key", key)
+                    .apply()
+
+                if (key.isBlank()) {
+                    adapter.setUnlocked(false)
+                    Toast.makeText(this, "Server saved", Toast.LENGTH_SHORT).show()
+                    loadFiles()
+                } else {
+                    verifyAdminKey(url, key)
+                }
             }
 
             findViewById<View>(R.id.insertCoin).setOnClickListener {
@@ -137,7 +164,7 @@ class MainActivity : AppCompatActivity() {
         if (baseUrl.isBlank()) {
             swipeRefresh.isRefreshing = false
             Toast.makeText(this, "Tap the logo 5 times to set your server URL", Toast.LENGTH_LONG).show()
-            (recycler.adapter as ApkAdapter).update(emptyList())
+            adapter.update(emptyList())
             return
         }
         swipeRefresh.isRefreshing = true
@@ -150,7 +177,7 @@ class MainActivity : AppCompatActivity() {
                     RemoteApk(o.getString("key"), o.optLong("size"), o.optString("uploaded"))
                 }
                 runOnUiThread {
-                    (recycler.adapter as ApkAdapter).update(files)
+                    adapter.update(files)
                     swipeRefresh.isRefreshing = false
                 }
             } catch (e: Exception) {
@@ -169,6 +196,34 @@ class MainActivity : AppCompatActivity() {
         conn.inputStream.use { input -> return input.bufferedReader().readText() }
     }
 
+    private fun verifyAdminKey(url: String, key: String) {
+        thread {
+            try {
+                val conn = URL("${url.trimEnd('/')}/api/verify").openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("X-Kuba-Key", key)
+                conn.connectTimeout = 10000
+                val code = conn.responseCode
+                runOnUiThread {
+                    if (code in 200..299) {
+                        adapter.setUnlocked(true)
+                        Toast.makeText(this, "Unlocked, delete/rename enabled", Toast.LENGTH_SHORT).show()
+                    } else {
+                        adapter.setUnlocked(false)
+                        Toast.makeText(this, "Wrong key, browsing only", Toast.LENGTH_LONG).show()
+                    }
+                    loadFiles()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    adapter.setUnlocked(false)
+                    Toast.makeText(this, "Couldn't verify key: ${e.message}", Toast.LENGTH_LONG).show()
+                    loadFiles()
+                }
+            }
+        }
+    }
+
     private fun onApkTapped(apk: RemoteApk) {
         Toast.makeText(this, "Downloading ${apk.key}", Toast.LENGTH_SHORT).show()
         thread {
@@ -184,6 +239,86 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread { proceedToInstall(outFile) }
             } catch (e: Exception) {
                 runOnUiThread { Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_LONG).show() }
+            }
+        }
+    }
+
+    private fun onDeleteTapped(apk: RemoteApk) {
+        AlertDialog.Builder(this)
+            .setTitle("Delete file")
+            .setMessage("Delete \"${apk.key}\"?")
+            .setPositiveButton("Delete") { _, _ -> deleteRemoteFile(apk) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun deleteRemoteFile(apk: RemoteApk) {
+        thread {
+            try {
+                val conn = URL("$baseUrl/api/files/${Uri.encode(apk.key)}").openConnection() as HttpURLConnection
+                conn.requestMethod = "DELETE"
+                conn.setRequestProperty("X-Kuba-Key", adminKey)
+                conn.connectTimeout = 10000
+                val code = conn.responseCode
+                runOnUiThread {
+                    if (code in 200..299) {
+                        Toast.makeText(this, "Deleted", Toast.LENGTH_SHORT).show()
+                        loadFiles()
+                    } else if (code == 401) {
+                        adapter.setUnlocked(false)
+                        Toast.makeText(this, "Key no longer valid, unlock again", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(this, "Delete failed ($code)", Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread { Toast.makeText(this, "Delete failed: ${e.message}", Toast.LENGTH_LONG).show() }
+            }
+        }
+    }
+
+    private fun onRenameTapped(apk: RemoteApk) {
+        val input = EditText(this)
+        input.setText(apk.key)
+        AlertDialog.Builder(this)
+            .setTitle("Rename file")
+            .setMessage("New name for \"${apk.key}\" (must end in .apk)")
+            .setView(input)
+            .setPositiveButton("Rename") { _, _ ->
+                val newName = input.text.toString().trim()
+                if (newName.isNotBlank() && newName != apk.key) {
+                    renameRemoteFile(apk.key, newName)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun renameRemoteFile(oldKey: String, newKey: String) {
+        thread {
+            try {
+                val body = JSONObject().put("oldKey", oldKey).put("newKey", newKey).toString()
+                val conn = URL("$baseUrl/api/rename").openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("X-Kuba-Key", adminKey)
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                conn.connectTimeout = 10000
+                conn.outputStream.use { it.write(body.toByteArray()) }
+                val code = conn.responseCode
+                runOnUiThread {
+                    if (code in 200..299) {
+                        Toast.makeText(this, "Renamed", Toast.LENGTH_SHORT).show()
+                        loadFiles()
+                    } else if (code == 401) {
+                        adapter.setUnlocked(false)
+                        Toast.makeText(this, "Key no longer valid, unlock again", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(this, "Rename failed ($code)", Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread { Toast.makeText(this, "Rename failed: ${e.message}", Toast.LENGTH_LONG).show() }
             }
         }
     }
