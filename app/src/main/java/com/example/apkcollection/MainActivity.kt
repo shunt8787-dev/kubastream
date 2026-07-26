@@ -40,55 +40,67 @@ class MainActivity : AppCompatActivity() {
     private var lastTapTime = 0L
     private var pendingInstallFile: File? = null
 
-    // Set this from inside the app: tap the logo 5 times to reveal the field.
     private val baseUrl: String
         get() = prefs.getString("server_base_url", "")?.trimEnd('/') ?: ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        prefs = getSharedPreferences("kubastream", Context.MODE_PRIVATE)
+        try {
+            setContentView(R.layout.activity_main)
+            prefs = getSharedPreferences("kubastream", Context.MODE_PRIVATE)
 
-        val logo = findViewById<TextView>(R.id.logo)
-        settingsPanel = findViewById(R.id.settingsPanel)
-        serverUrlInput = findViewById(R.id.serverUrlInput)
-        donatePanel = findViewById(R.id.donatePanel)
-        swipeRefresh = findViewById(R.id.swipeRefresh)
-        recycler = findViewById(R.id.apkList)
+            val logo = findViewById<TextView>(R.id.logo)
+            settingsPanel = findViewById(R.id.settingsPanel)
+            serverUrlInput = findViewById(R.id.serverUrlInput)
+            donatePanel = findViewById(R.id.donatePanel)
+            swipeRefresh = findViewById(R.id.swipeRefresh)
+            recycler = findViewById(R.id.apkList)
 
-        applyLogoGradient(logo)
-        serverUrlInput.setText(prefs.getString("server_base_url", ""))
+            applyLogoGradient(logo)
+            serverUrlInput.setText(prefs.getString("server_base_url", ""))
 
-        recycler.layoutManager = LinearLayoutManager(this)
-        recycler.adapter = ApkAdapter(emptyList()) { onApkTapped(it) }
+            recycler.layoutManager = LinearLayoutManager(this)
+            recycler.adapter = ApkAdapter(emptyList()) { onApkTapped(it) }
 
-        // Same trick as the web page: tap the logo 5 times within 1.5s to
-        // reveal the hidden panel. Here it reveals the server URL field
-        // instead of an upload form, since this app only browses + installs.
-        logo.setOnClickListener {
-            val now = System.currentTimeMillis()
-            if (now - lastTapTime > 1500) tapCount = 0
-            lastTapTime = now
-            tapCount++
-            if (tapCount >= 5) {
-                tapCount = 0
-                settingsPanel.visibility = if (settingsPanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            logo.setOnClickListener {
+                val now = System.currentTimeMillis()
+                if (now - lastTapTime > 1500) tapCount = 0
+                lastTapTime = now
+                tapCount++
+                if (tapCount >= 5) {
+                    tapCount = 0
+                    settingsPanel.visibility = if (settingsPanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+                }
             }
-        }
 
-        findViewById<View>(R.id.saveServerUrl).setOnClickListener {
-            prefs.edit().putString("server_base_url", serverUrlInput.text.toString().trim()).apply()
-            Toast.makeText(this, "Server saved", Toast.LENGTH_SHORT).show()
+            findViewById<View>(R.id.saveServerUrl).setOnClickListener {
+                prefs.edit().putString("server_base_url", serverUrlInput.text.toString().trim()).apply()
+                Toast.makeText(this, "Server saved", Toast.LENGTH_SHORT).show()
+                loadFiles()
+            }
+
+            findViewById<View>(R.id.insertCoin).setOnClickListener {
+                donatePanel.visibility = if (donatePanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            }
+
+            swipeRefresh.setOnRefreshListener { loadFiles() }
+
             loadFiles()
+        } catch (t: Throwable) {
+            showCrashScreen(t)
         }
+    }
 
-        findViewById<View>(R.id.insertCoin).setOnClickListener {
-            donatePanel.visibility = if (donatePanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-        }
-
-        swipeRefresh.setOnRefreshListener { loadFiles() }
-
-        loadFiles()
+    private fun showCrashScreen(t: Throwable) {
+        val scrollView = android.widget.ScrollView(this)
+        val tv = TextView(this)
+        tv.text = "KUBASTREAM crashed during startup:\n\n" + android.util.Log.getStackTraceString(t)
+        tv.setTextColor(android.graphics.Color.WHITE)
+        tv.setBackgroundColor(android.graphics.Color.BLACK)
+        tv.setPadding(24, 24, 24, 24)
+        tv.textSize = 12f
+        scrollView.addView(tv)
+        setContentView(scrollView)
     }
 
     override fun onResume() {
@@ -102,19 +114,22 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyLogoGradient(logo: TextView) {
         logo.post {
-            val shader = LinearGradient(
-                0f, 0f, 0f, logo.textSize,
-                intArrayOf(
-                    getColor(R.color.chrome),
-                    getColor(R.color.logo_mid),
-                    getColor(R.color.cyan),
-                    getColor(R.color.pink)
-                ),
-                floatArrayOf(0f, 0.35f, 0.65f, 1f),
-                Shader.TileMode.CLAMP
-            )
-            logo.paint.shader = shader
-            logo.invalidate()
+            try {
+                val shader = LinearGradient(
+                    0f, 0f, 0f, logo.textSize,
+                    intArrayOf(
+                        getColor(R.color.chrome),
+                        getColor(R.color.logo_mid),
+                        getColor(R.color.cyan),
+                        getColor(R.color.pink)
+                    ),
+                    floatArrayOf(0f, 0.35f, 0.65f, 1f),
+                    Shader.TileMode.CLAMP
+                )
+                logo.paint.shader = shader
+                logo.invalidate()
+            } catch (t: Throwable) {
+            }
         }
     }
 
